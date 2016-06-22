@@ -1,0 +1,54 @@
+#!/usr/local/bin/zsh
+
+# Copyright 2016, Han Boetes <hboetes@gmail.com>
+# Copied under MIT license
+
+# TODO: This script does not yet manage mx records.
+
+recurse()
+{
+    t=$(dig $1 -t TXT +short)
+    # (Q) strips of quotes.
+    t=${(Q)t}
+    for i in ${=t}; do
+        case $i in
+            ip4:*)
+                if [[ ${i#ip4} != */* ]]; then
+                    echo ${i#ip4:} permit
+                else
+                    # Even professional sysadmins make mistakes. And
+                    # postfix won't allow that.
+                    ip4=$(ipcalc ${i#ip4:} | awk '/network/ {print $3$4}')
+                    echo ${ip4} permit
+                fi
+                ;;
+            ip6:*)
+                echo ${i#ip6:} permit
+                ;;
+            include:*)
+                recurse ${i#include:}
+                ;;
+            redirect\=*)
+                i=${i#redirect\=}
+                recurse $i
+                ;;
+
+        esac
+    done
+}
+
+# Groups of hosts to be queried (edit to your liking)
+#webmail_hosts="aol.com google.com microsoft.com outlook.com hotmail.com gmx.com icloud.com mail.com inbox.com zoho.com"
+#social_hosts="facebook.com twitter.com pinterest.com instagram.com tumblr.com reddit.com linkedin.com"
+#commerce_hosts="craigslist.org amazon.com ebay.com paypal.com"
+#bulk_hosts="sendgrid.com sendgrid.net mailchimp.com exacttarget.com cust-spf.exacttarget.com constantcontact.com icontact.com mailgun.com fishbowl.com fbmta.com mailjet.com"
+#misc_hosts="zendesk.com github.com"
+# gmx?
+
+for domain in google.com hotmail.com github.com paypal.com gmx.com linkedin.com amazon.com telenet.be; do
+    echo "# $domain"
+    recurse $domain
+done
+
+# Add my own ips here.
+echo $(dig boetes.org +short) permit
