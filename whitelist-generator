@@ -3,21 +3,22 @@
 # Copyright 2016, Han Boetes <hboetes@gmail.com>
 # Copied under MIT license
 
-# TODO: This script does not yet manage mx records.
+# TODO the rest of the spec is also interesting.
 
 recurse()
 {
     t=$(dig $1 -t TXT +short)
-    # (Q) strips of quotes.
+    # (Q) strips a string of quotes.
     t=${(Q)t}
     for i in ${=t}; do
         case $i in
             ip4:*)
+                # If it's not an ip range.
                 if [[ ${i#ip4} != */* ]]; then
                     echo ${i#ip4:} permit
                 else
                     # Even professional sysadmins make mistakes. And
-                    # postfix won't allow that.
+                    # postfix will complain about that.
                     ip4=$(ipcalc ${i#ip4:} | awk '/network/ {print $3$4}')
                     echo ${ip4} permit
                 fi
@@ -32,7 +33,16 @@ recurse()
                 i=${i#redirect\=}
                 recurse $i
                 ;;
-
+            # MXes are a bit more complicated. They produce a list of
+            # hostnames that can be both A and AAAA records.
+            mx)
+                for MX in $(dig +short -t MX $1| cut -d' ' -f2); do
+                    A="$(dig +short -t A $MX)"
+                    [[ $A != $IFS ]] && echo $A permit
+                    AAAA="$(dig +short -t AAAA $MX)"
+                    [[ $AAAA != $IFS ]] && echo $AAAA permit
+                done
+                ;;
         esac
     done
 }
@@ -45,10 +55,7 @@ recurse()
 #misc_hosts="zendesk.com github.com"
 # gmx?
 
-for domain in google.com hotmail.com github.com paypal.com gmx.com linkedin.com amazon.com telenet.be; do
+for domain in google.com hotmail.com github.com paypal.com gmx.com linkedin.com amazon.com telenet.be boetes.org; do
     echo "# $domain"
     recurse $domain
 done
-
-# Add my own ips here.
-echo $(dig boetes.org +short) permit
