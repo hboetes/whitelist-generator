@@ -34,7 +34,7 @@ recurse()
                 recurse $i
                 ;;
             # MXes are a bit more complicated. They produce a list of
-            # hostnames that can be both A and AAAA records.
+            # hostnames that can have both A and AAAA records.
             mx)
                 for MX in $(dig +short -t MX $1| cut -d' ' -f2); do
                     A="$(dig +short -t A $MX)"
