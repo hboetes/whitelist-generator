@@ -1,4 +1,4 @@
-#!/usr/local/bin/zsh
+#!/usr/bin/env zsh
 
 # Copyright 2016, Han Boetes <hboetes@gmail.com>
 # Released under the MIT license, see LICENSE file included in this repository.
@@ -16,10 +16,13 @@ recurse()
                 # If it's not an ip range.
                 if [[ ${i#ip4} != */* ]]; then
                     echo ${i#ip4:} permit
-                else
+                elif [[ ${i#ip4} = */32 ]]; then
+                    i=${i%/32}
+                    echo ${i#ip4:} permit
+		else
                     # Even professional sysadmins make mistakes. And
                     # postfix will complain about that.
-                    ip4=$(ipcalc ${i#ip4:} | awk '/network/ {print $3$4}')
+                    ip4=$($ipc ${i#ip4:})
                     echo ${ip4} permit
                 fi
                 ;;
@@ -40,12 +43,29 @@ recurse()
                     A="$(dig +short -t A $MX)"
                     [[ $A != $IFS ]] && echo $A permit
                     AAAA="$(dig +short -t AAAA $MX)"
-                    [[ $AAAA != $IFS ]] && echo $AAAA permit
+                    [[ $AAAA != $IFS ]] && [[ $AAAA != '' ]] && echo $AAAA permit
                 done
                 ;;
         esac
     done
 }
+
+# Support two different versions of ipcalc
+ipc_pyr()
+{
+    ipcalc $1 | awk '/network/ {print $3$4}'
+}
+
+ipc_jodies()
+{
+    ipcalc -nb $1 | awk '/Network/ {print $2}'
+}
+
+if ipcalc -nb 10/8 > /dev/null 2>&1; then
+    ipc=ipc_jodies
+else
+    ipc=ipc_pyr
+fi
 
 # Groups of hosts to be queried (edit to your liking)
 #webmail_hosts="aol.com google.com microsoft.com outlook.com hotmail.com gmx.com icloud.com mail.com inbox.com zoho.com"
